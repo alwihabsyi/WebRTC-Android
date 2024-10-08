@@ -13,6 +13,7 @@ import org.webrtc.*
 import org.webrtc.PeerConnection.Observer
 import javax.inject.Inject
 
+@Suppress("DEPRECATION")
 class WebrtcClient @Inject constructor(
     private val context: Context, private val gson: Gson
 ) {
@@ -42,7 +43,7 @@ class WebrtcClient @Inject constructor(
     private var localVideoTrack:VideoTrack?=null
     private var localStream: MediaStream?=null
 
-    
+
     init {
         initPeerConnectionFactory(context)
     }
@@ -176,7 +177,7 @@ class WebrtcClient @Inject constructor(
         peerConnection?.addIceCandidate(iceCandidate)
     }
 
-    fun sendIceCandidate(candidate: IceCandidate,target: String){
+    fun sendIceCandidate(candidate: IceCandidate, target: String) {
         addIceCandidate(candidate)
         listener?.onTransferEventToSocket(
             DataModel(

@@ -2,84 +2,105 @@ package com.codewithkael.webrtcscreenshare.socket
 
 import android.util.Log
 import com.codewithkael.webrtcscreenshare.utils.DataModel
-import com.codewithkael.webrtcscreenshare.utils.DataModelType
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.java_websocket.client.WebSocketClient
-import org.java_websocket.handshake.ServerHandshake
-import java.net.URI
+import java.io.BufferedReader
+import java.io.BufferedWriter
+import java.io.IOException
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
+import java.io.PrintWriter
+import java.net.ServerSocket
+import java.net.Socket
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.Exception
 
 @Singleton
 class SocketClient @Inject constructor(
-    private val gson:Gson
-){
-    private var username:String?=null
-    companion object {
-        private var webSocket:WebSocketClient?=null
-    }
+    private val gson: Gson
+) {
+    private var serverSocket: ServerSocket? = null
+    private var clientSocket: Socket? = null
 
-    var listener:Listener?=null
-    fun init(username:String){
-        this.username = username
+    var listener: Listener? = null
 
-        webSocket= object : WebSocketClient(URI("ws://10.0.2.2:3000")){
-            override fun onOpen(handshakedata: ServerHandshake?) {
-                sendMessageToSocket(
-                    DataModel(
-                        type = DataModelType.SignIn,
-                        username = username,
-                        null,
-                        null
-                    )
-                )
+    fun startServer() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                serverSocket = ServerSocket(SOCKET_PORT)
+                clientSocket = serverSocket?.accept()
+
+                Log.d("SocketClient", "Client connected")
+
+                listenForMessages(clientSocket)
+            } catch (e: IOException) {
+                e.printStackTrace()
             }
-
-            override fun onMessage(message: String?) {
-                val model = try {
-                    gson.fromJson(message.toString(),DataModel::class.java)
-                }catch (e:Exception){
-                    null
-                }
-                Log.d("TAG", "onMessage: $model")
-                model?.let {
-                    listener?.onNewMessageReceived(it)
-                }
-            }
-
-            override fun onClose(code: Int, reason: String?, remote: Boolean) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    delay(5000)
-                    init(username)
-                }
-            }
-
-            override fun onError(ex: Exception?) {
-            }
-
         }
-        webSocket?.connect()
     }
 
+    fun connectToServer(groupOwnerAddress: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                clientSocket = Socket(groupOwnerAddress, SOCKET_PORT)
+                Log.d("SocketClient", "Connected to server")
 
-    fun sendMessageToSocket(message:Any?){
+                listenForMessages(clientSocket)
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun listenForMessages(socket: Socket?) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val reader = BufferedReader(InputStreamReader(socket?.getInputStream()))
+                var message: String?
+
+                while (reader.readLine().also { message = it } != null) {
+                    val model = try {
+                        gson.fromJson(message, DataModel::class.java)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    Log.d("SocketClient", "onMessage: $model")
+                    model?.let { listener?.onNewMessageReceived(it) }
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun sendMessageToSocket(message: Any?) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val writer = PrintWriter(BufferedWriter(OutputStreamWriter(clientSocket?.getOutputStream())), true)
+                writer.println(gson.toJson(message))
+                writer.flush()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun onDestroy() {
         try {
-            webSocket?.send(gson.toJson(message))
-        }catch (e:Exception){
+            serverSocket?.close()
+            clientSocket?.close()
+        } catch (e: IOException) {
             e.printStackTrace()
         }
     }
 
-    fun onDestroy(){
-        webSocket?.close()
+    interface Listener {
+        fun onNewMessageReceived(model: DataModel)
     }
 
-    interface Listener {
-        fun onNewMessageReceived(model:DataModel)
+    companion object {
+        const val SOCKET_PORT = 8889
     }
 }

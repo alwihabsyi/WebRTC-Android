@@ -65,12 +65,11 @@
         android:id="@+id/requestLayout"
         app:layout_constraintTop_toTopOf="parent"
         android:orientation="horizontal">
-        <EditText
+        <Spinner
+            android:id="@+id/targetSpinner"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:id="@+id/targetEt"
-            android:layout_weight="5"
-            android:hint="target username"/>
+            android:layout_weight="5"/>
         <androidx.appcompat.widget.AppCompatButton
             android:layout_width="0dp"
             android:layout_height="48dp"

@@ -1,6 +1,7 @@
 package com.codewithkael.webrtcscreenshare.repository
 
 import android.content.Intent
+import android.net.wifi.p2p.WifiP2pInfo
 import android.util.Log
 import com.codewithkael.webrtcscreenshare.socket.SocketClient
 import com.codewithkael.webrtcscreenshare.utils.DataModel
@@ -23,18 +24,24 @@ class MainRepository @Inject constructor(
     private lateinit var surfaceView: SurfaceViewRenderer
     var listener: Listener? = null
 
-    fun init(username: String, surfaceView: SurfaceViewRenderer) {
+    fun init(username: String, surfaceView: SurfaceViewRenderer, wifiP2pInfo: WifiP2pInfo) {
         this.username = username
         this.surfaceView = surfaceView
-        initSocket()
+        initSocket(wifiP2pInfo)
         initWebrtcClient()
-
     }
 
-    private fun initSocket() {
+    private fun initSocket(wifiP2pInfo: WifiP2pInfo) {
         socketClient.listener = this
-        socketClient.init(username)
+
+        if (wifiP2pInfo.isGroupOwner) {
+            socketClient.startServer()
+        } else {
+            val groupOwnerAddress = wifiP2pInfo.groupOwnerAddress.hostAddress
+            if (groupOwnerAddress != null) socketClient.connectToServer(groupOwnerAddress)
+        }
     }
+
 
     fun setPermissionIntentToWebrtcClient(intent:Intent){
         webrtcClient.setPermissionIntent(intent)
@@ -68,10 +75,6 @@ class MainRepository @Inject constructor(
                 null
             )
         )
-    }
-
-    fun restartRepository(){
-        webrtcClient.restart()
     }
 
     fun onDestroy(){

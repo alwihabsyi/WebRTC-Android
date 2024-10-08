@@ -1,10 +1,10 @@
 package com.codewithkael.webrtcscreenshare.service
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.net.wifi.p2p.WifiP2pInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -13,11 +13,11 @@ import com.codewithkael.webrtcscreenshare.repository.MainRepository
 import dagger.hilt.android.AndroidEntryPoint
 import org.webrtc.MediaStream
 import org.webrtc.SurfaceViewRenderer
+import java.net.InetAddress
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class WebrtcService @Inject constructor() : Service() , MainRepository.Listener {
-
 
     companion object {
         var screenPermissionIntent : Intent ?= null
@@ -42,9 +42,19 @@ class WebrtcService @Inject constructor() : Service() , MainRepository.Listener 
         if (intent!=null){
             when(intent.action){
                 "StartIntent"->{
-                    this.username = intent.getStringExtra("username").toString()
-                    mainRepository.init(username, surfaceView!!)
-                    startServiceWithNotification()
+                    username = intent.getStringExtra("username").toString()
+                    val isGroupOwner = intent.getBooleanExtra("isGroupOwner", false)
+                    val groupOwnerAddress = intent.getStringExtra("groupOwnerAddress")
+
+                    if (surfaceView != null) {
+                        val wifiP2pInfo = WifiP2pInfo().apply {
+                            this.isGroupOwner = isGroupOwner
+                            this.groupOwnerAddress = InetAddress.getByName(groupOwnerAddress)
+                        }
+
+                        mainRepository.init(username, surfaceView!!, wifiP2pInfo)
+                        startServiceWithNotification()
+                    }
                 }
                 "StopIntent"->{
                     stopMyService()
